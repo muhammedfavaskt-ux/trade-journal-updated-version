@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trade Journal — Updated Version</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Cabinet+Grotesk:wght@400;500;700;800&family=Instrument+Sans:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --gold: #D4A843;
+  --gold2: #F2C96A;
+  --gold-dim: rgba(212,168,67,0.1);
+  --gold-glow: rgba(212,168,67,0.18);
+  --green: #00C98D;
+  --green-dim: rgba(0,201,141,0.1);
+  --red: #FF5B5B;
+  --red-dim: rgba(255,91,91,0.1);
+  --blue: #4C8DFF;
+  --blue-dim: rgba(76,141,255,0.1);
+  --bg: #080A0E;
+  --bg2: #0E1117;
+  --surface: #111520;
+  --surface2: #171C2B;
+  --surface3: #1D2235;
+  --border: rgba(255,255,255,0.05);
+  --border2: rgba(255,255,255,0.09);
+  --border-gold: rgba(212,168,67,0.25);
+  --text: #EEF0F4;
+  --text2: #8B90A0;
+  --text3: #50556A;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Instrument Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* Noise overlay */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 999;
+  opacity: 0.4;
+}
+
+/* Glow spot */
+body::before {
+  content: '';
+  position: fixed;
+  top: -200px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 800px;
+  height: 400px;
+  background: radial-gradient(ellipse, rgba(212,168,67,0.07) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.wrap { max-width: 1140px; margin: 0 auto; padding: 0 28px; position: relative; z-index: 1; }
+
+/* ── NAV ── */
+nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px 0;
+  border-bottom: 1px solid var(--border-gold);
+  margin-bottom: 48px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.nav-left { display: flex; align-items: center; gap: 16px; }
+.logo-box {
+  width: 38px; height: 38px;
+  background: var(--gold-dim);
+  border: 1px solid var(--border-gold);
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  color: var(--gold);
+}
+.logo-text { font-family: 'Cabinet Grotesk', sans-serif; font-size: 17px; font-weight: 800; letter-spacing: -0.4px; }
+.logo-sub { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--text3); margin-top: 1px; }
+
+.nav-tabs { display: flex; gap: 2px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 3px; }
+.nav-tab {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  padding: 5px 14px;
+  border-radius: 5px;
+  border: none;
+  cursor: pointer;
+  color: var(--text2);
+  background: transparent;
+  transition: all 0.15s;
+}
+.nav-tab.active { background: var(--surface3); color: var(--gold); }
+
+.nav-badge {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  color: var(--green);
+  background: var(--green-dim);
+  border: 1px solid rgba(0,201,141,0.2);
+  padding: 5px 12px;
+  border-radius: 6px;
+  display: flex; align-items: center; gap: 6px;
+}
+.dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s ease infinite; }
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.85)} }
+
+/* ── SECTION LABEL ── */
+.slabel {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.slabel::before { content: '//'; color: var(--gold); }
+.slabel::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+/* ── HERO STATS ── */
+.hero-stats {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 1px;
+  background: var(--border2);
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border2);
+  margin-bottom: 48px;
+}
+.hero-cell {
+  background: var(--surface);
+  padding: 24px 26px;
+  position: relative;
+  transition: background 0.2s;
+}
+.hero-cell:hover { background: var(--surface2); }
+.hero-cell.main { background: var(--surface2); }
+.hero-cell.main::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--gold), transparent);
+}
+.hc-label { font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text3); margin-bottom: 10px; }
+.hc-val { font-family: 'Cabinet Grotesk', sans-serif; font-size: 32px; font-weight: 800; line-height: 1; }
+.hc-sub { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--text3); margin-top: 6px; }
+.hc-trend { display: inline-flex; align-items: center; gap: 4px; font-family: 'Space Mono', monospace; font-size: 10px; margin-top: 6px; padding: 2px 7px; border-radius: 4px; }
+.up { color: var(--green); background: var(--green-dim); }
+.dn { color: var(--red); background: var(--red-dim); }
+.gold { color: var(--gold); }
+.green { color: var(--green); }
+.red { color: var(--red); }
+
+/* ── EQUITY CURVE (full width) ── */
+.equity-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 24px 28px;
+  margin-bottom: 24px;
+}
+.ec-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+.ec-title { font-family: 'Cabinet Grotesk', sans-serif; font-size: 15px; font-weight: 700; }
+.ec-meta { display: flex; gap: 16px; }
+.ec-stat { text-align: right; }
+.ec-stat-val { font-family: 'Space Mono', monospace; font-size: 13px; font-weight: 700; }
+.ec-stat-lbl { font-family: 'Space Mono', monospace; font-size: 9px; color: var(--text3); letter-spacing: 0.08em; }
+
+/* ── TWO-COL CHARTS ── */
+.charts2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+.chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px 24px;
+}
+.cc-title { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text2); margin-bottom: 16px; }
+
+/* ── TRADE TABLE ── */
+.table-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+.table-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap; gap: 10px;
+}
+.tt-title { font-family: 'Cabinet Grotesk', sans-serif; font-size: 14px; font-weight: 700; }
+.filters { display: flex; gap: 4px; }
+.f-btn {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.07em;
+  padding: 5px 11px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  color: var(--text2);
+  background: transparent;
+  transition: all 0.15s;
+}
+.f-btn.on, .f-btn:hover { border-color: var(--border-gold); color: var(--gold); background: var(--gold-dim); }
+
+table { width: 100%; border-collapse: collapse; }
+thead tr { background: var(--bg2); }
+th {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text3);
+  padding: 11px 18px;
+  text-align: left;
+  font-weight: 400;
+}
+td { padding: 13px 18px; font-size: 13px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr { transition: background 0.1s; cursor: pointer; }
+tbody tr:hover { background: rgba(212,168,67,0.03); }
+
+.num { font-family: 'Space Mono', monospace; }
+.tid { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--text3); }
+.pair { font-family: 'Cabinet Grotesk', sans-serif; font-weight: 700; font-size: 14px; }
+
+.badge {
+  display: inline-block;
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+}
+.b-long { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,201,141,0.2); }
+.b-win { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,201,141,0.2); }
+.b-loss { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,91,91,0.2); }
+.b-neutral { background: rgba(255,255,255,0.04); color: var(--text2); border: 1px solid var(--border); }
+
+.tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.tag {
+  font-family: 'Space Mono', monospace;
+  font-size: 8px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: var(--gold-dim);
+  color: var(--gold);
+  border: 1px solid rgba(212,168,67,0.15);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.pnl-p { color: var(--green); font-family: 'Space Mono', monospace; font-weight: 700; font-size: 12px; }
+.pnl-n { color: var(--red); font-family: 'Space Mono', monospace; font-weight: 700; font-size: 12px; }
+.rr { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--text2); }
+
+/* RR mini bar */
+.rr-bar { display: flex; align-items: center; gap: 8px; }
+.rr-track { width: 50px; height: 3px; background: var(--border2); border-radius: 2px; overflow: hidden; }
+.rr-fill-g { height: 100%; border-radius: 2px; background: var(--green); }
+.rr-fill-r { height: 100%; border-radius: 2px; background: var(--red); }
+
+/* ── BOTTOM GRID ── */
+.bottom-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; margin-bottom: 48px; }
+.info-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px 24px;
+}
+.ic-title { font-family: 'Cabinet Grotesk', sans-serif; font-size: 14px; font-weight: 700; margin-bottom: 16px; }
+.ic-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  gap: 12px;
+}
+.ic-row:last-child { border-bottom: none; }
+.ic-key { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--text2); }
+.ic-val { font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 700; }
+
+.conf-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.conf-row:last-child { border-bottom: none; }
+.conf-name { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--text2); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.conf-track { flex: 1; height: 3px; background: var(--border2); border-radius: 2px; overflow: hidden; }
+.conf-fill { height: 100%; border-radius: 2px; background: var(--gold); }
+.conf-n { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--gold); min-width: 20px; text-align: right; }
+
+/* ── RULES ── */
+.rules-card {
+  background: var(--surface);
+  border: 1px solid var(--border-gold);
+  border-radius: 14px;
+  padding: 22px 24px;
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+}
+.rules-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--gold), var(--gold2), transparent);
+}
+.rc-title { font-family: 'Cabinet Grotesk', sans-serif; font-size: 14px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+.rules-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.rule {
+  display: flex; align-items: flex-start; gap: 8px;
+  font-size: 12px;
+  color: var(--text2);
+  padding: 8px 12px;
+  border-radius: 7px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+}
+.rule-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+.rule-text { line-height: 1.45; }
+
+/* ── FOOTER ── */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 22px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.ft { font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text3); }
+.ft-badge { background: var(--gold-dim); color: var(--gold); border: 1px solid var(--border-gold); padding: 4px 10px; border-radius: 4px; }
+
+/* ── ANIMATIONS ── */
+@keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+.hero-cell { animation: fadeUp 0.35s ease both; }
+.hero-cell:nth-child(1){animation-delay:0.05s}
+.hero-cell:nth-child(2){animation-delay:0.1s}
+.hero-cell:nth-child(3){animation-delay:0.15s}
+.hero-cell:nth-child(4){animation-delay:0.2s}
+
+/* Tooltip row highlight */
+.highlight { background: rgba(212,168,67,0.04) !important; }
+
+/* scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <!-- NAV -->
+  <nav>
+    <div class="nav-left">
+      <div class="logo-box">XAU</div>
+      <div>
+        <div class="logo-text">Trade Journal</div>
+        <div class="logo-sub">UPDATED VERSION · SMC STRATEGY</div>
+      </div>
+    </div>
+    <div class="nav-tabs">
+      <button class="nav-tab active">Overview</button>
+      <button class="nav-tab">Trades</button>
+      <button class="nav-tab">Analytics</button>
+    </div>
+    <div class="nav-badge"><span class="dot"></span> 5 TRADES LOGGED</div>
+  </nav>
+
+  <!-- HERO STATS -->
+  <p class="slabel">Performance snapshot</p>
+  <div class="hero-stats">
+    <div class="hero-cell main">
+      <p class="hc-label">Net PnL</p>
+      <p class="hc-val green">+$1,200</p>
+      <p class="hc-trend up">▲ 13× profit factor</p>
+    </div>
+    <div class="hero-cell">
+      <p class="hc-label">Win Rate</p>
+      <p class="hc-val gold">80%</p>
+      <p class="hc-sub">4W · 1L</p>
+    </div>
+    <div class="hero-cell">
+      <p class="hc-label">Avg RR (wins)</p>
+      <p class="hc-val gold">3.25R</p>
+      <p class="hc-sub">Best: +4R</p>
+    </div>
+    <div class="hero-cell">
+      <p class="hc-label">Expectancy</p>
+      <p class="hc-val green">+$240</p>
+      <p class="hc-sub">per trade avg</p>
+    </div>
+  </div>
+
+  <!-- EQUITY CURVE -->
+  <p class="slabel">Equity curve</p>
+  <div class="equity-card">
+    <div class="ec-header">
+      <div>
+        <p class="ec-title">Cumulative PnL Growth</p>
+        <p style="font-size:11px;color:var(--text3);margin-top:3px;font-family:'Space Mono',monospace;">Feb 2025 – Sep 2025 · XAUUSD</p>
+      </div>
+      <div class="ec-meta">
+        <div class="ec-stat">
+          <p class="ec-stat-val green">+$1,200</p>
+          <p class="ec-stat-lbl">Total return</p>
+        </div>
+        <div class="ec-stat">
+          <p class="ec-stat-val gold">+$400</p>
+          <p class="ec-stat-lbl">Best trade</p>
+        </div>
+        <div class="ec-stat">
+          <p class="ec-stat-val red">-$100</p>
+          <p class="ec-stat-lbl">Max drawdown</p>
+        </div>
+      </div>
+    </div>
+    <div style="position:relative;height:220px;">
+      <canvas id="equityChart" role="img" aria-label="Equity curve from $0 to $1200 across 5 trades">Start:$0 T1:$300 T2:$600 T3:$500 T4:$800 T5:$1200</canvas>
+    </div>
+  </div>
+
+  <!-- TWO CHARTS -->
+  <div class="charts2">
+    <div class="chart-card">
+      <p class="cc-title">PnL per trade</p>
+      <div style="position:relative;height:180px;">
+        <canvas id="pnlChart" role="img" aria-label="PnL per trade bars">T1:+300 T2:+300 T3:-100 T4:+300 T5:+400</canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <p class="cc-title">Win / Loss distribution</p>
+      <div style="position:relative;height:180px;">
+        <canvas id="winChart" role="img" aria-label="Donut chart 80% wins 20% losses">80% wins 20% losses</canvas>
+      </div>
+      <div style="display:flex;gap:16px;justify-content:center;margin-top:10px;">
+        <span style="display:flex;align-items:center;gap:5px;font-family:'Space Mono',monospace;font-size:10px;color:var(--text2)"><span style="width:8px;height:8px;border-radius:2px;background:var(--green);display:inline-block"></span>WIN 80%</span>
+        <span style="display:flex;align-items:center;gap:5px;font-family:'Space Mono',monospace;font-size:10px;color:var(--text2)"><span style="width:8px;height:8px;border-radius:2px;background:var(--red);display:inline-block"></span>LOSS 20%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TRADE LOG -->
+  <p class="slabel">Trade log</p>
+  <div class="table-card">
+    <div class="table-toolbar">
+      <span class="tt-title">All Trades</span>
+      <div class="filters">
+        <button class="f-btn on" onclick="filter('all',this)">ALL</button>
+        <button class="f-btn" onclick="filter('win',this)">WINS</button>
+        <button class="f-btn" onclick="filter('loss',this)">LOSSES</button>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Date</th>
+          <th>Pair</th>
+          <th>Dir</th>
+          <th>Confluence factors</th>
+          <th>Result</th>
+          <th>RR</th>
+          <th>Net PnL</th>
+          <th>Risk</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody id="tbody">
+
+        <tr data-type="win">
+          <td><span class="tid">#001</span></td>
+          <td class="num" style="font-size:12px;color:var(--text2)">23 Feb 25</td>
+          <td><span class="pair">XAUUSD</span></td>
+          <td><span class="badge b-long">LONG</span></td>
+          <td><div class="tags"><span class="tag">Targeted Lq</span><span class="tag">Sweep+BOS</span><span class="tag">Bex Candle</span><span class="tag">Order Flow</span></div></td>
+          <td><span class="badge b-win">TP ✓</span></td>
+          <td><div class="rr-bar"><div class="rr-track"><div class="rr-fill-g" style="width:75%"></div></div><span class="rr">3R</span></div></td>
+          <td><span class="pnl-p">+$300</span></td>
+          <td style="font-family:'Space Mono',monospace;font-size:11px;">0.5%</td>
+          <td style="font-size:11px;color:var(--text3);max-width:120px;">Alltime high lq, 3 consecutive sweep</td>
+        </tr>
+
+        <tr data-type="win">
+          <td><span class="tid">#002</span></td>
+          <td class="num" style="font-size:12px;color:var(--text2)">03 Mar 25</td>
+          <td><span class="pair">XAUUSD</span></td>
+          <td><span class="badge b-long">LONG</span></td>
+          <td><div class="tags"><span class="tag">Targeted Lq</span><span class="tag">Majour Lq Sweep</span><span class="tag">Order Flow</span></div></td>
+          <td><span class="badge b-win">TP ✓</span></td>
+          <td><div class="rr-bar"><div class="rr-track"><div class="rr-fill-g" style="width:75%"></div></div><span class="rr">3R</span></div></td>
+          <td><span class="pnl-p">+$300</span></td>
+          <td style="font-family:'Space Mono',monospace;font-size:11px;">1%</td>
+          <td style="font-size:11px;color:var(--text3);max-width:120px;">Majour lq sweep, up trend market</td>
+        </tr>
+
+        <tr data-type="loss">
+          <td><span class="tid">#003</span></td>
+          <td class="num" style="font-size:12px;color:var(--text2)">17 Jun 25</td>
+          <td><span class="pair">XAUUSD</span></td>
+          <td><span class="badge b-long">LONG</span></td>
+          <td><div class="tags"><span class="tag">Bex Candle</span><span class="tag">Asian Sweep</span><span class="tag">Daily D/S</span><span class="tag">Targeted Lq</span></div></td>
+          <td><span class="badge b-loss">SL ✗</span></td>
+          <td><div class="rr-bar"><div class="rr-track"><div class="rr-fill-r" style="width:25%"></div></div><span class="rr red">-1R</span></div></td>
+          <td><span class="pnl-n">-$100</span></td>
+          <td style="font-family:'Space Mono',monospace;font-size:11px;">1%</td>
+          <td style="font-size:11px;color:var(--text3);max-width:120px;">Missing primary confluence</td>
+        </tr>
+
+        <tr data-type="win">
+          <td><span class="tid">#004</span></td>
+          <td class="num" style="font-size:12px;color:var(--text2)">04 Sep 25</td>
+          <td><span class="pair">XAUUSD</span></td>
+          <td><span class="badge b-long">LONG</span></td>
+          <td><div class="tags"><span class="tag">Sweep+BOS</span><span class="tag">Targeted Lq</span><span class="tag">Lq Ind</span></div></td>
+          <td><span class="badge b-win">TP ✓</span></td>
+          <td><div class="rr-bar"><div class="rr-track"><div class="rr-fill-g" style="width:75%"></div></div><span class="rr">3R</span></div></td>
+          <td><span class="pnl-p">+$300</span></td>
+          <td style="font-family:'Space Mono',monospace;font-size:11px;">1%</td>
+          <td style="font-size:11px;color:var(--text3);max-width:120px;">Strong uptrend</td>
+        </tr>
+
+        <tr data-type="win">
+          <td><span class="tid">#005</span></td>
+          <td class="num" style="font-size:12px;color:var(--text2)">25 Aug 25</td>
+          <td><span class="pair">XAUUSD</span></td>
+          <td><span class="badge b-long">LONG</span></td>
+          <td><div class="tags"><span class="tag">Sweep+BOS</span><span class="tag">Targeted Lq</span><span class="tag">Majour Lq Sweep</span></div></td>
+          <td><span class="badge b-win">TP 3 ✓</span></td>
+          <td><div class="rr-bar"><div class="rr-track"><div class="rr-fill-g" style="width:100%"></div></div><span class="rr">+4R</span></div></td>
+          <td><span class="pnl-p">+$400</span></td>
+          <td style="font-family:'Space Mono',monospace;font-size:11px;">1%</td>
+          <td style="font-size:11px;color:var(--text3);max-width:120px;">Daily demand + prev day low sweep</td>
+        </tr>
+
+      </tbody>
+    </table>
+  </div>
+
+  <!-- BOTTOM GRID -->
+  <div class="bottom-grid">
+    <div class="info-card">
+      <p class="ic-title">Confluence leaderboard</p>
+      <div class="conf-row">
+        <span class="conf-name">Targeted Lq</span>
+        <div class="conf-track"><div class="conf-fill" style="width:100%"></div></div>
+        <span class="conf-n">4×</span>
+      </div>
+      <div class="conf-row">
+        <span class="conf-name">Sweep + BOS</span>
+        <div class="conf-track"><div class="conf-fill" style="width:100%"></div></div>
+        <span class="conf-n">4×</span>
+      </div>
+      <div class="conf-row">
+        <span class="conf-name">Majour Lq Sweep</span>
+        <div class="conf-track"><div class="conf-fill" style="width:75%"></div></div>
+        <span class="conf-n">3×</span>
+      </div>
+      <div class="conf-row">
+        <span class="conf-name">Order Flow</span>
+        <div class="conf-track"><div class="conf-fill" style="width:50%"></div></div>
+        <span class="conf-n">2×</span>
+      </div>
+      <div class="conf-row">
+        <span class="conf-name">Bex Candle</span>
+        <div class="conf-track"><div class="conf-fill" style="width:50%"></div></div>
+        <span class="conf-n">2×</span>
+      </div>
+      <div class="conf-row">
+        <span class="conf-name">Asian Sweep</span>
+        <div class="conf-track"><div class="conf-fill" style="width:25%"></div></div>
+        <span class="conf-n">1×</span>
+      </div>
+      <div class="conf-row">
+        <span class="conf-name">Daily D/S</span>
+        <div class="conf-track"><div class="conf-fill" style="width:25%"></div></div>
+        <span class="conf-n">1×</span>
+      </div>
+      <div class="conf-row">
+        <span class="conf-name">Lq Ind</span>
+        <div class="conf-track"><div class="conf-fill" style="width:25%"></div></div>
+        <span class="conf-n">1×</span>
+      </div>
+    </div>
+
+    <div class="info-card">
+      <p class="ic-title">Detailed stats</p>
+      <div class="ic-row"><span class="ic-key">Total trades</span><span class="ic-val gold">5</span></div>
+      <div class="ic-row"><span class="ic-key">Wins</span><span class="ic-val green">4</span></div>
+      <div class="ic-row"><span class="ic-key">Losses</span><span class="ic-val red">1</span></div>
+      <div class="ic-row"><span class="ic-key">Win rate</span><span class="ic-val green">80%</span></div>
+      <div class="ic-row"><span class="ic-key">Profit factor</span><span class="ic-val gold">13.00</span></div>
+      <div class="ic-row"><span class="ic-key">Gross profit</span><span class="ic-val green">+$1,300</span></div>
+      <div class="ic-row"><span class="ic-key">Gross loss</span><span class="ic-val red">-$100</span></div>
+      <div class="ic-row"><span class="ic-key">Net PnL</span><span class="ic-val green">+$1,200</span></div>
+      <div class="ic-row"><span class="ic-key">Avg win</span><span class="ic-val green">+$325</span></div>
+      <div class="ic-row"><span class="ic-key">Avg loss</span><span class="ic-val red">-$100</span></div>
+      <div class="ic-row"><span class="ic-key">Best RR</span><span class="ic-val gold">+4R</span></div>
+      <div class="ic-row"><span class="ic-key">Avg RR (wins)</span><span class="ic-val gold">3.25R</span></div>
+    </div>
+  </div>
+
+  <!-- RULES -->
+  <p class="slabel">Trading rules</p>
+  <div class="rules-card">
+    <p class="rc-title">📋 My Trading Rules</p>
+    <div class="rules-grid">
+      <div class="rule"><span class="rule-icon">✅</span><span class="rule-text">Minimum 2 confluence factors before entry</span></div>
+      <div class="rule"><span class="rule-icon">✅</span><span class="rule-text">Always use Targeted Lq or Sweep+BOS as primary</span></div>
+      <div class="rule"><span class="rule-icon">✅</span><span class="rule-text">Risk maximum 1% per trade (0.5% conservative)</span></div>
+      <div class="rule"><span class="rule-icon">✅</span><span class="rule-text">Minimum RR target of 2R before entry</span></div>
+      <div class="rule"><span class="rule-icon">❌</span><span class="rule-text">No trades during high-impact news events</span></div>
+      <div class="rule"><span class="rule-icon">❌</span><span class="rule-text">No revenge trading after a stop loss</span></div>
+      <div class="rule"><span class="rule-icon">❌</span><span class="rule-text">Never move SL against the trade</span></div>
+      <div class="rule"><span class="rule-icon">❌</span><span class="rule-text">No entry without chart confirmation on 2H or 4H</span></div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <span class="ft">XAUUSD TRADE JOURNAL · SMC STRATEGY · 2025</span>
+    <span class="ft ft-badge">UPDATED VERSION</span>
+    <span class="ft">5 TRADES · +$1,200 NET PNL</span>
+  </footer>
+
+</div>
+
+<script>
+new Chart(document.getElementById('equityChart'), {
+  type: 'line',
+  data: {
+    labels: ['Start','T1 Feb','T2 Mar','T3 Jun','T4 Aug','T5 Sep'],
+    datasets: [{
+      label: 'Equity',
+      data: [0, 300, 600, 500, 800, 1200],
+      borderColor: '#D4A843',
+      backgroundColor: (ctx) => {
+        const g = ctx.chart.ctx.createLinearGradient(0,0,0,220);
+        g.addColorStop(0,'rgba(212,168,67,0.18)');
+        g.addColorStop(1,'rgba(212,168,67,0)');
+        return g;
+      },
+      borderWidth: 2,
+      pointBackgroundColor: [0,300,600,500,800,1200].map(v => v >= 0 ? '#D4A843' : '#FF5B5B'),
+      pointBorderColor: '#080A0E',
+      pointBorderWidth: 2,
+      pointRadius: 5,
+      pointHoverRadius: 7,
+      fill: true,
+      tension: 0.4
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: {
+      backgroundColor: '#111520',
+      borderColor: 'rgba(212,168,67,0.3)',
+      borderWidth: 1,
+      titleColor: '#8B90A0',
+      bodyColor: '#D4A843',
+      titleFont: { family: 'Space Mono', size: 10 },
+      bodyFont: { family: 'Space Mono', size: 12 },
+      callbacks: { label: ctx => ' $' + ctx.raw }
+    }},
+    scales: {
+      y: {
+        ticks: { color: '#50556A', font: { family: 'Space Mono', size: 10 }, callback: v => '$'+v },
+        grid: { color: 'rgba(255,255,255,0.04)' },
+        border: { color: 'rgba(255,255,255,0.06)' }
+      },
+      x: {
+        ticks: { color: '#50556A', font: { family: 'Space Mono', size: 10 } },
+        grid: { display: false },
+        border: { color: 'rgba(255,255,255,0.06)' }
+      }
+    }
+  }
+});
+
+new Chart(document.getElementById('pnlChart'), {
+  type: 'bar',
+  data: {
+    labels: ['T1','T2','T3','T4','T5'],
+    datasets: [{
+      data: [300, 300, -100, 300, 400],
+      backgroundColor: [300,300,-100,300,400].map(v => v>0 ? 'rgba(0,201,141,0.55)' : 'rgba(255,91,91,0.55)'),
+      borderColor: [300,300,-100,300,400].map(v => v>0 ? '#00C98D' : '#FF5B5B'),
+      borderWidth: 1,
+      borderRadius: 5
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: {
+      backgroundColor: '#111520', borderColor: 'rgba(212,168,67,0.3)', borderWidth:1,
+      titleColor: '#8B90A0', bodyColor: '#EEF0F4',
+      titleFont: { family: 'Space Mono', size: 10 }, bodyFont: { family: 'Space Mono', size: 11 },
+      callbacks: { label: ctx => ' $' + ctx.raw }
+    }},
+    scales: {
+      y: { ticks: { color: '#50556A', font: { family:'Space Mono',size:10 }, callback: v=>'$'+v }, grid:{color:'rgba(255,255,255,0.04)'}, border:{color:'rgba(255,255,255,0.06)'} },
+      x: { ticks: { color:'#50556A', font:{family:'Space Mono',size:10} }, grid:{display:false}, border:{color:'rgba(255,255,255,0.06)'} }
+    }
+  }
+});
+
+new Chart(document.getElementById('winChart'), {
+  type: 'doughnut',
+  data: {
+    labels: ['Win','Loss'],
+    datasets: [{ data:[4,1], backgroundColor:['#00C98D','#FF5B5B'], borderWidth:0, hoverOffset:4 }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    cutout: '68%',
+    plugins: { legend:{display:false}, tooltip:{
+      backgroundColor:'#111520', borderColor:'rgba(212,168,67,0.3)', borderWidth:1,
+      titleColor:'#8B90A0', bodyColor:'#EEF0F4',
+      titleFont:{family:'Space Mono',size:10}, bodyFont:{family:'Space Mono',size:11}
+    }}
+  }
+});
+
+function filter(type, btn) {
+  document.querySelectorAll('.f-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  document.querySelectorAll('#tbody tr').forEach(tr => {
+    if (type === 'all') tr.style.display = '';
+    else tr.style.display = tr.dataset.type === type ? '' : 'none';
+  });
+}
+</script>
+</body>
+</html>
